@@ -1,0 +1,16 @@
+{
+  "name": "alivizo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Alivizo — منصة تصميم فيديوهات إعلانية بالذكاء الاصطناعي",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
