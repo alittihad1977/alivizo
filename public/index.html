@@ -113,13 +113,41 @@
     </section>
 
     <section class="section contact" id="contact">
-      <div class="contact-card">
-        <div>
-          <span class="kicker">جاهز نبدأ؟</span>
-          <h2>خلّي فكرتك تصير فيديو.</h2>
-          <p>حاليًا نجهز تجربة الطلب الأولى لـ Alivizo. أرسل تفاصيل فكرتك لنبدأ من المكان الصحيح.</p>
-        </div>
-        <a class="btn primary" href="mailto:hello@alivizo.com">تواصل مع Alivizo <span>←</span></a>
+      <div class="order-intro">
+        <span class="kicker">اطلب فيديو</span>
+        <h2>خلّي فكرتك تصير فيديو.</h2>
+        <p>عبّي التفاصيل الأساسية، وعلي يرتب لك الطلب والخطوة التالية.</p>
+      </div>
+      <div class="order-card">
+        <form id="order-form" class="order-form">
+          <div class="form-grid">
+            <label><span>الاسم</span><input name="name" type="text" placeholder="اسمك" required></label>
+            <label><span>رقم واتساب</span><input name="phone" type="tel" placeholder="مثال: 09xxxxxxxx" required></label>
+            <label><span>نوع النشاط</span>
+              <select name="business" required>
+                <option value="">اختر نوع النشاط</option><option>مطعم أو كافيه</option><option>متجر</option><option>منتج</option><option>عقارات</option><option>سيارات</option><option>خدمات</option><option>أخرى</option>
+              </select>
+            </label>
+            <label><span>نوع الفيديو</span>
+              <select name="videoType" required>
+                <option value="">اختر نوع الفيديو</option><option>إعلان قصير</option><option>Reels / TikTok</option><option>عرض منتج</option><option>عقار أو سيارة</option><option>فيديو عرض / مناسبة</option>
+              </select>
+            </label>
+            <label><span>المنصة</span>
+              <select name="platform" required>
+                <option value="">أين سينشر الفيديو؟</option><option>Instagram</option><option>TikTok</option><option>WhatsApp</option><option>Facebook</option><option>أكثر من منصة</option>
+              </select>
+            </label>
+            <label><span>مدة تقريبية</span>
+              <select name="duration"><option>ما بعرف، خلّي علي يقترح</option><option>حتى 15 ثانية</option><option>15–30 ثانية</option><option>30–60 ثانية</option></select>
+            </label>
+          </div>
+          <label><span>احكي لنا عن الفيديو</span><textarea name="details" rows="5" placeholder="شو بدك يظهر بالفيديو؟ اكتب العرض أو الفكرة أو أي تفاصيل مهمة..." required></textarea></label>
+          <label class="file-field"><span>الصور أو الشعار <small>(اختياري — سنضيف رفع الملفات في الخطوة التالية)</small></span><input type="file" disabled></label>
+          <button class="btn primary submit-btn" type="submit">إرسال طلب الفيديو <span>←</span></button>
+          <p class="form-note">ما رح نرسل أي شيء بدون تأكيدك. بعد الإرسال رح يظهر لك رقم طلب مبدئي.</p>
+          <div id="order-success" class="order-success" hidden></div>
+        </form>
       </div>
     </section>
   </main>
