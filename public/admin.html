@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Alivizo | إدارة الطلبات</title><link rel="stylesheet" href="/styles.css"></head>
+<body class="admin-page">
+<header class="site-header"><a class="brand" href="/"><span class="brand-mark">A</span><span>Alivizo</span></a><span class="admin-title">لوحة إدارة الطلبات</span></header>
+<main class="admin-main">
+<section class="admin-login" id="login-box"><h1>إدارة Alivizo</h1><p>أدخل مفتاح الإدارة للوصول إلى الطلبات.</p><input id="token" type="password" placeholder="مفتاح الإدارة"><button class="btn primary" id="login">دخول</button><div id="login-error"></div></section>
+<section id="dashboard" hidden><div class="admin-head"><div><span class="kicker">Alivizo Orders</span><h1>طلبات الفيديو</h1></div><button class="btn secondary" id="refresh">تحديث</button></div><div id="stats" class="admin-stats"></div><div id="orders" class="orders-list"></div></section>
+</main>
+<script>
+let token=localStorage.getItem("alivizo_admin_token")||"";
+const loginBox=document.querySelector("#login-box"), dash=document.querySelector("#dashboard"), tokenInput=document.querySelector("#token"), err=document.querySelector("#login-error");
+if(token){tokenInput.value=token;loadOrders();}
+document.querySelector("#login").onclick=()=>{token=tokenInput.value.trim();if(!token){err.textContent="أدخل المفتاح أولًا.";return}localStorage.setItem("alivizo_admin_token",token);loadOrders()};
+document.querySelector("#refresh").onclick=loadOrders;
+async function loadOrders(){try{const r=await fetch("/api/admin/orders",{headers:{Authorization:"Bearer "+token}});if(!r.ok)throw new Error();const data=await r.json();loginBox.hidden=true;dash.hidden=false;render(data.orders||[])}catch(e){localStorage.removeItem("alivizo_admin_token");loginBox.hidden=false;dash.hidden=true;err.textContent="مفتاح الإدارة غير صحيح أو اللوحة غير مفعلة بعد."}}
+function render(orders){const counts={new:0,review:0,approved:0,designing:0,preview:0,done:0};orders.forEach(o=>counts[o.status]=(counts[o.status]||0)+1);document.querySelector("#stats").innerHTML=[["new","جديد"],["review","قيد المراجعة"],["approved","مؤكد"],["designing","قيد التصميم"],["preview","معاينة"],["done","مكتمل"]].map(x=>`<div><b>${counts[x[0]]||0}</b><span>${x[1]}</span></div>`).join("");document.querySelector("#orders").innerHTML=orders.length?orders.map(o=>`<article class="admin-order"><div><b>${o.id}</b><span>${o.created_at?new Date(o.created_at).toLocaleString("ar-SY"): ""}</span></div><h3>${esc(o.name)} — ${esc(o.business)}</h3><p><strong>${esc(o.video_type)}</strong> · ${esc(o.platform)} · ${esc(o.duration||"")}</p><p>${esc(o.details)}</p><small>واتساب: ${esc(o.phone)}</small><select data-id="${o.id}" class="status-select">${["new","review","approved","designing","preview","done"].map(s=>`<option value="${s}" ${s===o.status?"selected":""}>${label(s)}</option>`).join("")}</select></article>`).join(""):"<div class='empty-state'>لا توجد طلبات حتى الآن.</div>";document.querySelectorAll(".status-select").forEach(s=>s.onchange=()=>updateStatus(s.dataset.id,s.value))}
+async function updateStatus(id,status){await fetch("/api/admin/orders/"+encodeURIComponent(id),{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({status})});loadOrders()}
+function label(s){return ({new:"جديد",review:"قيد المراجعة",approved:"مؤكد",designing:"قيد التصميم",preview:"معاينة",done:"مكتمل"})[s]||s}
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
+</script></body></html>
