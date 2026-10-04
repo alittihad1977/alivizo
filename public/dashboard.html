@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لوحة العميل | Alivizo</title>
+<link rel="stylesheet" href="/styles.css">
+<style>
+.dashboard-wrap{max-width:1100px;margin:auto;padding:30px 20px}
+.dashboard-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+.balance{font-size:28px;font-weight:800;color:var(--blue)}
+.services{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.service{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px}
+.btn{border:0;border-radius:12px;padding:11px 17px;font:inherit;font-weight:700;cursor:pointer}
+.primary{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff}
+.secondary{background:#eef3fb;color:var(--ink)}
+.field{margin-bottom:15px}
+.field label{display:block;font-weight:700;margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;box-sizing:border-box;padding:11px;border:1px solid #dce2ec;border-radius:10px;font:inherit}
+.notice{padding:12px;border-radius:10px;margin-bottom:15px}
+.error{background:#fff1f1;color:#8a2525}
+.success{background:#effaf3;color:#176b38}
+.orders{display:grid;gap:12px}
+.order{background:#fff;border:1px solid var(--line);border-radius:15px;padding:16px}
+.file-box{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.file-box input{width:100%;box-sizing:border-box;margin:8px 0;font:inherit}
+.file-status{font-size:13px;margin-top:6px}
+.uploaded-files{margin:10px 0}
+.uploaded-file{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line)}
+.uploaded-file span{flex:1;word-break:break-word}
+.uploaded-file a{color:inherit}
+
+.badge{display:inline-block;background:#eef4ff;color:#2458a6;border-radius:20px;padding:5px 9px;font-size:12px}
+.login{max-width:450px;margin:70px auto}
+[hidden]{display:none!important}
+@media(max-width:700px){.cards,.services{grid-template-columns:1fr}.dashboard-head{align-items:flex-start;gap:15px;flex-direction:column}}
+</style>
+</head>
+<body>
+<main class="dashboard-wrap">
+<section id="login" class="card login">
+<h1>لوحة العميل</h1>
+<p>سجّل الدخول لإدارة طلباتك ورصيد Coins.</p>
+<div id="login-error" class="notice error" hidden></div>
+<form id="login-form">
+<div class="field"><label>رقم الهاتف</label><input name="phone" type="tel" required></div>
+<div class="field"><label>كلمة المرور</label><input name="password" type="password" required></div>
+<button class="btn primary">تسجيل الدخول</button>
+</form>
+</section>
+
+<section id="dashboard" hidden>
+<header class="dashboard-head">
+<div><h1>مرحباً، <span id="name">—</span></h1><p id="phone">—</p></div>
+<button id="logout" class="btn secondary">تسجيل الخروج</button>
+</header>
+
+<div id="notice" hidden></div>
+
+<div class="cards">
+<div class="card"><small>رصيد Coins</small><div class="balance"><span id="balance">0</span> Coins</div></div>
+<div class="card"><small>عدد الطلبات</small><div class="balance" id="count">0</div></div>
+<div class="card"><small>الحساب</small><div class="balance">نشط</div></div>
+</div>
+
+<section style="margin-top:30px">
+<h2>الخدمات</h2>
+<div id="services" class="services"></div>
+</section>
+
+<section style="margin-top:30px">
+<h2>إنشاء طلب</h2>
+<div class="card">
+<form id="order-form">
+<div class="field"><label>الخدمة</label><select id="service" name="serviceId" required><option value="">اختر الخدمة</option></select></div>
+<div id="price" class="notice" hidden>السعر: <b id="price-value">0</b> Coins</div>
+<div class="field"><label>اسم النشاط / المشروع</label><input name="business" required></div>
+<div class="field"><label>نوع الفيديو</label><input name="videoType" required></div>
+<div class="field"><label>المنصة</label><input name="platform"></div>
+<div class="field"><label>المدة</label><input name="duration"></div>
+<div class="field"><label>تفاصيل الطلب</label><textarea name="details" rows="5" required></textarea></div>
+<button class="btn primary">إنشاء الطلب وخصم Coins</button>
+</form>
+</div>
+</section>
+
+<section style="margin-top:30px">
+<h2>طلباتي</h2>
+<div id="orders" class="orders"></div>
+</section>
+</section>
+</main>
+<script>
+const KEY="alivizo_session_token";
+let services=[];
+const $=s=>document.querySelector(s);
+function token(){return localStorage.getItem(KEY)}
+async function api(url,opt={}){
+ const h={...(opt.body?{"Content-Type":"application/json"}:{}),...(opt.headers||{})};
+ if(token())h.Authorization="Bearer "+token();
+ const r=await fetch(url,{...opt,headers:h});
+ const d=await r.json().catch(()=>({}));
+ if(!r.ok)throw Error(d.error||"حدث خطأ");
+ return d;
+}
+</script>
+<script>
+async function loadMe(){
+ try{
+  const d=await api("/api/auth/me");
+  $("#name").textContent=d.user.name;
+  $("#phone").textContent=d.user.phone;
+  $("#balance").textContent=d.wallet.balance;
+  $("#login").hidden=true;
+  $("#dashboard").hidden=false;
+  await loadServices();
+  await loadOrders();
+ }catch(e){
+  localStorage.removeItem(KEY);
+  $("#login").hidden=false;
+  $("#dashboard").hidden=true;
+ }
+}
+
+async function loadServices(){
+ const d=await api("/api/services");
+ services=d.services||[];
+ const select=$("#service");
+ const box=$("#services");
+ select.innerHTML='<option value="">اختر الخدمة</option>';
+ box.innerHTML="";
+ services.forEach(s=>{
+  select.innerHTML+=`<option value="${s.id}">${s.name} — ${s.price_coins} Coins</option>`;
+  box.innerHTML+=`
+   <div class="service">
+    <h3>${s.name}</h3>
+    <p>${s.description||""}</p>
+    <b>${s.price_coins} Coins</b>
+   </div>`;
+ });
+}
+
+async function loadOrders(){
+ const d=await api("/api/my/orders");
+ const orders=d.orders||[];
+ $("#count").textContent=orders.length;
+
+ if(!orders.length){
+  $("#orders").innerHTML="<p>لا توجد طلبات بعد.</p>";
+  return;
+ }
+
+ const cards=await Promise.all(orders.map(async o=>{
+  let files=[];
+  try{
+   const fd=await api("/api/my/orders/"+encodeURIComponent(o.id)+"/files");
+   files=fd.files||[];
+  }catch(e){}
+
+  const fileList=files.length?files.map(f=>`
+   <div class="uploaded-file">
+    <span>${f.original_name}</span>
+    <small>${Math.round(f.size/1024)} KB</small>
+    <button type="button" class="open-client-file" data-order-id="${o.id}" data-file-id="${f.id}" data-mime-type="${f.mime_type}">فتح الملف</button>
+   </div>
+  `).join(""):"<small>لا توجد ملفات مرفوعة بعد.</small>";
+
+  return `
+   <div class="order">
+    <b>${o.id}</b>
+    <span class="badge">${o.service_name||"طلب قديم"}</span>
+    <p>السعر: ${o.price_coins??"—"} Coins</p>
+    <p>الحالة: ${o.status} — الدفع: ${o.payment_status}</p>
+    <small>${new Date(o.created_at).toLocaleString("ar-SY")}</small>
+
+    <div class="file-box">
+     <b>مواد الطلب</b>
+     <div class="uploaded-files">${fileList}</div>
+     <input type="file" class="order-file" data-order-id="${o.id}" multiple>
+     <div class="file-status" id="file-status-${o.id}"></div>
+    </div>
+   </div>`;
+ }));
+
+ $("#orders").innerHTML=cards.join("");
+}
+
+document.addEventListener("click",async e=>{
+ if(!e.target.classList.contains("open-client-file"))return;
+
+ const btn=e.target;
+ const orderId=btn.dataset.orderId;
+ const fileId=btn.dataset.fileId;
+ const mimeType=btn.dataset.mimeType || "";
+
+ btn.disabled=true;
+ btn.textContent="جاري الفتح...";
+
+ try{
+  const r=await fetch(
+   "/api/my/orders/"+encodeURIComponent(orderId)+"/files/"+encodeURIComponent(fileId)+"/stream-url",
+   {headers:{Authorization:"Bearer "+token()}}
+  );
+
+  const d=await r.json().catch(()=>({}));
+
+  if(!r.ok)throw new Error(d.error||"تعذر إنشاء رابط الملف");
+
+  if(mimeType.startsWith("video/")){
+   let player=btn.parentElement.querySelector(".client-video-player");
+
+   if(!player){
+    player=document.createElement("video");
+    player.className="client-video-player";
+    player.controls=true;
+    player.playsInline=true;
+    player.preload="metadata";
+    player.style.width="100%";
+    player.style.maxHeight="420px";
+    player.style.marginTop="8px";
+    player.style.borderRadius="12px";
+    player.style.background="#000";
+    btn.parentElement.appendChild(player);
+   }
+
+   player.src=d.url;
+   player.load();
+  }else{
+   window.open(d.url,"_blank","noopener");
+  }
+ }catch(err){
+  alert(err.message||"تعذر فتح الملف");
+ }finally{
+  btn.disabled=false;
+  btn.textContent="فتح الملف";
+ }
+});
+
+document.addEventListener("change",async e=>{
+ if(!e.target.classList.contains("order-file"))return;
+
+ const input=e.target;
+ const orderId=input.dataset.orderId;
+ const status=document.querySelector("#file-status-"+orderId);
+ const files=Array.from(input.files||[]);
+
+ if(!files.length)return;
+
+ status.textContent="جاري رفع الملفات...";
+
+ try{
+  for(const file of files){
+   const form=new FormData();
+   form.append("file",file);
+
+   const r=await fetch("/api/my/orders/"+encodeURIComponent(orderId)+"/files",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+token()},
+    body:form
+   });
+
+   const d=await r.json().catch(()=>({}));
+
+   if(!r.ok)throw Error(d.error||"تعذر رفع الملف");
+  }
+
+  status.textContent="تم رفع الملفات بنجاح ✓";
+  input.value="";
+ }catch(err){
+  status.textContent=err.message;
+ }
+});
+
+$("#service").addEventListener("change",()=>{
+ const s=services.find(x=>String(x.id)===$("#service").value);
+ $("#price").hidden=!s;
+ if(s)$("#price-value").textContent=s.price_coins;
+});
+
+$("#login-form").addEventListener("submit",async e=>{
+ e.preventDefault();
+ $("#login-error").hidden=true;
+ try{
+  const data=Object.fromEntries(new FormData(e.target));
+  const d=await api("/api/auth/login",{
+   method:"POST",body:JSON.stringify(data)
+  });
+  localStorage.setItem(KEY,d.token);
+  await loadMe();
+ }catch(err){
+  $("#login-error").textContent=err.message;
+  $("#login-error").hidden=false;
+ }
+});
+$("#logout").onclick=async()=>{
+ try{await api("/api/auth/logout",{method:"POST"});}catch{}
+ localStorage.removeItem(KEY);
+ location.reload();
+};
+$("#order-form").onsubmit=async e=>{
+ e.preventDefault();
+ const s=services.find(x=>String(x.id)===$("#service").value);
+ if(!s)return;
+ if(!confirm("سيتم خصم "+s.price_coins+" Coins. متابعة؟"))return;
+ try{
+  const data=Object.fromEntries(new FormData(e.target));
+  const d=await api("/api/orders",{method:"POST",body:JSON.stringify(data)});
+  $("#notice").className="notice success";
+  $("#notice").textContent="تم إنشاء الطلب بنجاح: "+d.order.orderId;
+  $("#notice").hidden=false;
+  e.target.reset();
+  $("#price").hidden=true;
+  const w=await api("/api/my/wallet");
+  $("#balance").textContent=w.wallet.balance;
+  await loadOrders();
+ }catch(err){
+  $("#notice").className="notice error";
+  $("#notice").textContent=err.message;
+  $("#notice").hidden=false;
+ }
+};
+loadMe();
+</script>
+</body>
+</html>

@@ -11,7 +11,11 @@
     "node": ">=20"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^13.0.3",
     "express": "^5.1.0",
-    "pg": "^8.16.3"
+    "multer": "^2.4.0",
+    "pg": "^8.16.3",
+    "socket.io": "^4.8.4"
   }
 }

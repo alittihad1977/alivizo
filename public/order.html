@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>تفاصيل الطلب - Alivizo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="admin-page">
+
+  <main class="admin-main order-details">
+    <div class="order-details-head">
+      <div>
+        <h1 class="admin-title">تفاصيل الطلب</h1>
+        <div id="order-id" class="admin-subtitle"></div>
+      </div>
+      <a href="/admin.html" class="btn secondary">العودة للطلبات</a>
+    </div>
+
+    <div id="loading" class="order-details-card">جاري تحميل الطلب...</div>
+    <div id="error" class="order-details-card" style="display:none"></div>
+
+    <div id="content" style="display:none">
+      <div class="order-details-card">
+        <div class="order-details-grid">
+          <div class="order-detail-item">
+            <div class="order-detail-label">الاسم</div>
+            <div id="name" class="order-detail-value"></div>
+          </div>
+
+          <div class="order-detail-item">
+            <div class="order-detail-label">رقم الهاتف</div>
+            <div id="phone" class="order-detail-value"></div>
+          </div>
+
+          <div class="order-detail-item">
+            <div class="order-detail-label">النشاط / الشركة</div>
+            <div id="business" class="order-detail-value"></div>
+          </div>
+
+          <div class="order-detail-item">
+            <div class="order-detail-label">نوع الفيديو</div>
+            <div id="video_type" class="order-detail-value"></div>
+          </div>
+
+          <div class="order-detail-item">
+            <div class="order-detail-label">المنصة</div>
+            <div id="platform" class="order-detail-value"></div>
+          </div>
+
+          <div class="order-detail-item">
+            <div class="order-detail-label">المدة</div>
+            <div id="duration" class="order-detail-value"></div>
+          </div>
+
+          <div class="order-detail-item order-detail-full">
+            <div class="order-detail-label">تفاصيل الطلب</div>
+            <div id="details" class="order-detail-value order-detail-details"></div>
+          </div>
+
+          <div class="order-detail-item">
+            <div class="order-detail-label">الحالة</div>
+            <div id="status" class="order-detail-value"></div>
+          </div>
+
+          <div class="order-detail-item">
+            <div class="order-detail-label">تاريخ الإنشاء</div>
+            <div id="created_at" class="order-detail-value"></div>
+          </div>
+        </div>
+
+        <div id="status-actions" class="order-status-actions"></div>
+
+        <div class="order-detail-files">
+          <div class="order-detail-label">ملفات الطلب</div>
+          <div id="order-files">جاري تحميل الملفات...</div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+<script>
+const STATUSES = [
+  ["new","جديد"],
+  ["review","قيد المراجعة"],
+  ["approved","تمت الموافقة"],
+  ["designing","قيد التصميم"],
+  ["preview","المعاينة"],
+  ["done","مكتمل"]
+];
+
+function esc(value){
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#039;"
+  }[c]));
+}
+
+function getToken(){
+  return localStorage.getItem("alivizo_admin_token") || "";
+}
+
+function formatDate(value){
+  if(!value) return "-";
+  try{
+    return new Date(value).toLocaleString("ar-SY");
+  }catch{
+    return value;
+  }
+}
+
+async function loadOrder(){
+  const id = new URLSearchParams(location.search).get("id");
+
+  if(!id){
+    document.getElementById("loading").style.display="none";
+    document.getElementById("error").style.display="block";
+    document.getElementById("error").textContent="رقم الطلب غير موجود.";
+    return;
+  }
+
+  document.getElementById("order-id").textContent = id;
+
+  try{
+    const res = await fetch("/api/admin/orders/" + encodeURIComponent(id), {
+      headers:{
+        Authorization:"Bearer " + getToken()
+      }
+    });
+
+    const data = await res.json();
+
+    if(!res.ok) throw new Error(data.error || "تعذر تحميل الطلب");
+
+    const o = data.order;
+
+    document.getElementById("name").textContent = o.name || "-";
+    document.getElementById("phone").textContent = o.phone || "-";
+    document.getElementById("business").textContent = o.business || "-";
+    document.getElementById("video_type").textContent = o.video_type || "-";
+    document.getElementById("platform").textContent = o.platform || "-";
+    document.getElementById("duration").textContent = o.duration || "-";
+    document.getElementById("details").textContent = o.details || "-";
+    document.getElementById("status").textContent =
+      (STATUSES.find(s => s[0] === o.status) || ["",o.status])[1];
+    document.getElementById("created_at").textContent = formatDate(o.created_at);
+
+    const filesBox = document.getElementById("order-files");
+
+    try{
+      const filesRes = await fetch(
+        "/api/admin/orders/" + encodeURIComponent(id) + "/files",
+        {
+          headers:{
+            Authorization:"Bearer " + getToken()
+          }
+        }
+      );
+
+      const filesData = await filesRes.json();
+
+      if(!filesRes.ok) throw new Error(filesData.error || "تعذر تحميل الملفات");
+
+      if(!filesData.files || !filesData.files.length){
+        filesBox.textContent = "لا توجد ملفات مرفوعة.";
+      }else{
+        filesBox.innerHTML = filesData.files.map(file => `
+          <div class="order-file-item">
+            <strong>${esc(file.original_name)}</strong>
+            <div>${esc(file.mime_type)} — ${Number(file.size || 0).toLocaleString("ar-SY")} بايت</div>
+            <div>${formatDate(file.created_at)}</div>
+          </div>
+        `).join("");
+      }
+    }catch(e){
+      filesBox.textContent = "تعذر تحميل الملفات.";
+    }
+
+
+    const actions = document.getElementById("status-actions");
+
+    STATUSES.forEach(([value,label])=>{
+      const btn = document.createElement("button");
+      btn.type="button";
+      btn.className="btn " + (value === o.status ? "primary" : "secondary");
+      btn.textContent=label;
+      btn.disabled=value === o.status;
+
+      btn.onclick=async()=>{
+        btn.disabled=true;
+
+        const update = await fetch(
+          "/api/admin/orders/" + encodeURIComponent(id),
+          {
+            method:"PATCH",
+            headers:{
+              "Content-Type":"application/json",
+              Authorization:"Bearer " + getToken()
+            },
+            body:JSON.stringify({status:value})
+          }
+        );
+
+        if(update.ok){
+          location.reload();
+        }else{
+          btn.disabled=false;
+          alert("تعذر تحديث حالة الطلب");
+        }
+      };
+
+      actions.appendChild(btn);
+    });
+
+    document.getElementById("loading").style.display="none";
+    document.getElementById("content").style.display="block";
+
+  }catch(e){
+    document.getElementById("loading").style.display="none";
+    document.getElementById("error").style.display="block";
+    document.getElementById("error").textContent=e.message;
+  }
+}
+
+loadOrder();
+</script>
+
+</body>
+</html>

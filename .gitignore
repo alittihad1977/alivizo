@@ -2,3 +2,20 @@ node_modules/
 .env
 .DS_Store
 npm-debug.log*
+.file_stream_secret
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal
+*.db.backup*
+*.db.before-*
+
+# Local backups
+*.backup*
+*.before-*
+
+# Runtime/test files
+*.log
+uploads/
+server.js.legacy-social-backup

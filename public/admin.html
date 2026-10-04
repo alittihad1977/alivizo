@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Alivizo | إدارة الطلبات</title><link rel="stylesheet" href="/styles.css"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Alivizo | إدارة الطلبات</title><link rel="stylesheet" href="/styles.css"><style>
+.admin-files{margin:14px 0;padding:12px;border-top:1px solid var(--line,#ddd)}
+.admin-file{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line,#ddd)}
+.admin-file span{flex:1;word-break:break-word}
+</style></head>
 <body class="admin-page">
 <header class="site-header"><a class="brand" href="/"><span class="brand-mark">A</span><span>Alivizo</span></a><span class="admin-title">لوحة إدارة الطلبات</span></header>
 <main class="admin-main">
@@ -14,8 +18,95 @@ if(token){tokenInput.value=token;loadOrders();}
 document.querySelector("#login").onclick=()=>{token=tokenInput.value.trim();if(!token){err.textContent="أدخل المفتاح أولًا.";return}localStorage.setItem("alivizo_admin_token",token);loadOrders()};
 document.querySelector("#refresh").onclick=loadOrders;
 async function loadOrders(){try{const r=await fetch("/api/admin/orders",{headers:{Authorization:"Bearer "+token}});if(!r.ok)throw new Error();const data=await r.json();loginBox.hidden=true;dash.hidden=false;render(data.orders||[])}catch(e){localStorage.removeItem("alivizo_admin_token");loginBox.hidden=false;dash.hidden=true;err.textContent="مفتاح الإدارة غير صحيح أو اللوحة غير مفعلة بعد."}}
-function render(orders){const counts={new:0,review:0,approved:0,designing:0,preview:0,done:0};orders.forEach(o=>counts[o.status]=(counts[o.status]||0)+1);document.querySelector("#stats").innerHTML=[["new","جديد"],["review","قيد المراجعة"],["approved","مؤكد"],["designing","قيد التصميم"],["preview","معاينة"],["done","مكتمل"]].map(x=>`<div><b>${counts[x[0]]||0}</b><span>${x[1]}</span></div>`).join("");document.querySelector("#orders").innerHTML=orders.length?orders.map(o=>`<article class="admin-order"><div><b>${o.id}</b><span>${o.created_at?new Date(o.created_at).toLocaleString("ar-SY"): ""}</span></div><h3>${esc(o.name)} — ${esc(o.business)}</h3><p><strong>${esc(o.video_type)}</strong> · ${esc(o.platform)} · ${esc(o.duration||"")}</p><p>${esc(o.details)}</p><small>واتساب: ${esc(o.phone)}</small><select data-id="${o.id}" class="status-select">${["new","review","approved","designing","preview","done"].map(s=>`<option value="${s}" ${s===o.status?"selected":""}>${label(s)}</option>`).join("")}</select></article>`).join(""):"<div class='empty-state'>لا توجد طلبات حتى الآن.</div>";document.querySelectorAll(".status-select").forEach(s=>s.onchange=()=>updateStatus(s.dataset.id,s.value))}
-async function updateStatus(id,status){await fetch("/api/admin/orders/"+encodeURIComponent(id),{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({status})});loadOrders()}
+async function render(orders){
+ const counts={new:0,review:0,approved:0,designing:0,preview:0,done:0};
+ orders.forEach(o=>counts[o.status]=(counts[o.status]||0)+1);
+ document.querySelector("#stats").innerHTML=[["new","جديد"],["review","قيد المراجعة"],["approved","مؤكد"],["designing","قيد التصميم"],["preview","معاينة"],["done","مكتمل"]].map(x=>`<div><b>${counts[x[0]]||0}</b><span>${x[1]}</span></div>`).join("");
+
+ const ordersWithFiles=await Promise.all(orders.map(async o=>{
+  let files=[];
+  try{
+   const r=await fetch("/api/admin/orders/"+encodeURIComponent(o.id)+"/files",{
+    headers:{Authorization:"Bearer "+token}
+   });
+   if(r.ok){
+    const d=await r.json();
+    files=d.files||[];
+   }
+  }catch(e){}
+  return {...o,files};
+ }));
+
+ document.querySelector("#orders").innerHTML=ordersWithFiles.length?ordersWithFiles.map(o=>`
+  <article class="admin-order">
+   <div><b>${o.id}</b><span>${o.created_at?new Date(o.created_at).toLocaleString("ar-SY"): ""}</span></div>
+   <h3>${esc(o.name)} — ${esc(o.business)}</h3>
+   <p><strong>${esc(o.video_type)}</strong> · ${esc(o.platform)} · ${esc(o.duration||"")}</p>
+   <p>${esc(o.details)}</p>
+   <small>واتساب: ${esc(o.phone)}</small>
+
+   <div class="admin-files">
+    <strong>ملفات العميل</strong>
+    ${o.files.length?o.files.map(f=>`
+     <div class="admin-file">
+      <span>${esc(f.original_name)}</span>
+      <small>${Math.round(f.size/1024)} KB</small>
+      <button type="button" class="btn secondary open-admin-file" data-order-id="${esc(o.id)}" data-file-id="${f.id}">فتح الملف</button>
+     </div>
+    `).join(""):"<small>لا توجد ملفات مرفوعة.</small>"}
+   </div>
+
+   <div><a class="btn secondary" href="/order.html?id=${encodeURIComponent(o.id)}">تفاصيل الطلب</a></div>
+   <div class="status-buttons" data-id="${o.id}">${["new","review","approved","designing","preview","done"].map(s=>`<button type="button" class="btn ${s===o.status?"primary":"secondary"} status-btn" data-status="${s}" ${s===o.status?"disabled":""}>${label(s)}</button>`).join("")}</div>
+  </article>
+ `).join(""):"<div class='empty-state'>لا توجد طلبات حتى الآن.</div>";
+
+ document.querySelectorAll(".status-buttons").forEach(box=>box.querySelectorAll(".status-btn").forEach(btn=>btn.onclick=()=>updateStatus(box.dataset.id,btn.dataset.status)))
+ document.querySelectorAll(".open-admin-file").forEach(btn=>{
+  btn.onclick=()=>openAdminFile(btn.dataset.orderId,btn.dataset.fileId);
+ });
+
+ 
+}
+async function openAdminFile(orderId,fileId){
+ try{
+  const r=await fetch(
+   "/api/admin/orders/"+encodeURIComponent(orderId)+"/files/"+encodeURIComponent(fileId)+"/stream-url",
+   {headers:{Authorization:"Bearer "+token}}
+  );
+
+  const d=await r.json().catch(()=>({}));
+
+  if(!r.ok)throw new Error(d.error||"تعذر إنشاء رابط الملف");
+
+  window.open(d.url,"_blank","noopener");
+ }catch(e){
+  alert(e.message||"تعذر فتح الملف");
+ }
+}
+
+async function updateStatus(id,status){
+ try{
+  const r=await fetch("/api/admin/orders/"+encodeURIComponent(id),{
+   method:"PATCH",
+   headers:{
+    "Content-Type":"application/json",
+    Authorization:"Bearer "+token
+   },
+   body:JSON.stringify({status})
+  });
+
+  const d=await r.json().catch(()=>({}));
+
+  if(!r.ok){
+   throw new Error(d.error||"تعذر تحديث حالة الطلب");
+  }
+
+  await loadOrders();
+ }catch(e){
+  alert(e.message||"تعذر تحديث حالة الطلب");
+ }
+}
 function label(s){return ({new:"جديد",review:"قيد المراجعة",approved:"مؤكد",designing:"قيد التصميم",preview:"معاينة",done:"مكتمل"})[s]||s}
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 </script></body></html>
